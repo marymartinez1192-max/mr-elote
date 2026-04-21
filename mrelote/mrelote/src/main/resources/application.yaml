@@ -1,0 +1,31 @@
+server:
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: mrelote
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mrelote
+    username: mrelote
+    password: mrelote
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+app:
+  jwt:
+    secret: bXJlbG90ZTIwMjRzZWNyZXRrZXlmb3Jqd3R0b2tlbjMyYnl0ZXMh
+    expiration: 86400000
+  carrito:
+    tarifa-envio: 3000
+  admin:
+    nombre: Administrador
+    telefono: "0000000000"
+    correo: admin@mrelote.com
+    password: admin1234
+    direccion: MrElote HQ

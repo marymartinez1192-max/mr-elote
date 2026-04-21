@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MrElote – Mis Pedidos</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<nav></nav>
+<div class="container">
+  <h1 class="page-title">Mis Pedidos</h1>
+  <div id="orders-content">
+    <div class="empty-state"><div class="icon">⏳</div>Cargando...</div>
+  </div>
+</div>
+
+<!-- Modal detalle pedido -->
+<div class="modal-overlay" id="order-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Detalle del pedido</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="js/api.js"></script>
+<script src="js/orders.js"></script>
+</body>
+</html>

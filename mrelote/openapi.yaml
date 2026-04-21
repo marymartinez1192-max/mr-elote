@@ -1,0 +1,1413 @@
+openapi: 3.0.3
+info:
+  title: MrElote API
+  description: >
+    API REST para la gestión de productos, pedidos y pagos del puesto de
+    comidas rápidas MrElote. Proyecto académico universitario desarrollado
+    en Java + Spring Boot.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Servidor de desarrollo local
+
+tags:
+  - name: Autenticación
+    description: Registro e inicio de sesión de usuarios
+  - name: Catálogo
+    description: Consulta pública de productos y categorías
+  - name: Carrito
+    description: Gestión del carrito de compras del usuario autenticado
+  - name: Pedidos
+    description: Confirmación, seguimiento y cancelación de pedidos
+  - name: Pagos
+    description: Registro de comprobantes de pago externo
+  - name: Notificaciones
+    description: Notificaciones in-app del usuario autenticado
+  - name: Calificaciones
+    description: Calificación del servicio post-entrega
+  - name: Negocio
+    description: Estado público de apertura del negocio
+  - name: Admin - Productos
+    description: Gestión de productos (solo ADMIN)
+  - name: Admin - Pedidos
+    description: Transición de estados de pedidos (solo ADMIN)
+  - name: Admin - Pagos
+    description: Aprobación o rechazo de pagos manuales (solo ADMIN)
+  - name: Admin - Configuración
+    description: Configuración de horario y cierre manual del negocio (solo ADMIN)
+
+paths:
+
+  # ─────────────────────────────────────────
+  # AUTENTICACIÓN
+  # ─────────────────────────────────────────
+
+  /auth/register:
+    post:
+      tags: [Autenticación]
+      summary: Registrar nuevo usuario
+      description: >
+        HU-01. Crea una cuenta con nombre, teléfono, correo, dirección y
+        contraseña. El correo debe ser único. La contraseña debe tener mínimo
+        8 caracteres.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Usuario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión
+      description: HU-02. Autentica al usuario con correo y contraseña y retorna un token JWT.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión iniciada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Usuarios]
+      summary: Actualizar método de pago preferido
+      description: HU-03. Guarda el método de pago preferido del usuario autenticado.
+      operationId: updatePreferredPaymentMethod
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodRequest'
+      responses:
+        '200':
+          description: Método de pago actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─────────────────────────────────────────
+  # CATÁLOGO
+  # ─────────────────────────────────────────
+
+  /categories:
+    get:
+      tags: [Catálogo]
+      summary: Listar categorías de productos
+      description: Retorna todas las categorías disponibles para agrupar el catálogo.
+      operationId: listCategories
+      responses:
+        '200':
+          description: Lista de categorías
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+
+  /products:
+    get:
+      tags: [Catálogo]
+      summary: Listar productos
+      description: >
+        HU-04. Retorna productos con nombre, imagen, precio, descripción y
+        disponibilidad. Permite filtrar por categoría o disponibilidad.
+      operationId: listProducts
+      parameters:
+        - name: categoryId
+          in: query
+          required: false
+          description: Filtrar productos por categoría
+          schema:
+            type: integer
+            format: int64
+        - name: available
+          in: query
+          required: false
+          description: Filtrar solo productos disponibles
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Lista de productos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  # ─────────────────────────────────────────
+  # NEGOCIO (PÚBLICO)
+  # ─────────────────────────────────────────
+
+  /business/status:
+    get:
+      tags: [Negocio]
+      summary: Consultar estado de apertura del negocio
+      description: >
+        RN-06. Permite a los clientes saber si el negocio está abierto antes
+        de confirmar un pedido. Considera el horario configurado y el cierre
+        manual.
+      operationId: getBusinessStatus
+      responses:
+        '200':
+          description: Estado actual del negocio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessStatus'
+
+  # ─────────────────────────────────────────
+  # CARRITO
+  # ─────────────────────────────────────────
+
+  /cart:
+    get:
+      tags: [Carrito]
+      summary: Ver resumen del carrito
+      description: >
+        HU-08. Retorna el carrito activo del usuario con ítems, cantidades,
+        precio unitario, subtotal por ítem, tarifa de envío y total.
+        Un usuario tiene como máximo un carrito activo (RN-01).
+      operationId: getCart
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Carrito activo del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /cart/items:
+    post:
+      tags: [Carrito]
+      summary: Agregar producto al carrito
+      description: >
+        HU-07. Agrega un producto disponible al carrito con su cantidad.
+        No permite agregar productos con disponibilidad = false (RN-02).
+      operationId: addCartItem
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '201':
+          description: Ítem agregado. Retorna el carrito actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /cart/items/{itemId}:
+    put:
+      tags: [Carrito]
+      summary: Modificar cantidad de un ítem del carrito
+      description: HU-09. Actualiza la cantidad de un ítem. Subtotal y total se recalculan.
+      operationId: updateCartItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+      responses:
+        '200':
+          description: Ítem actualizado. Retorna el carrito actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Carrito]
+      summary: Eliminar ítem del carrito
+      description: HU-09. Elimina un ítem del carrito. Subtotal y total se recalculan.
+      operationId: removeCartItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: Ítem eliminado. Retorna el carrito actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────
+  # PEDIDOS
+  # ─────────────────────────────────────────
+
+  /orders:
+    post:
+      tags: [Pedidos]
+      summary: Confirmar pedido desde el carrito
+      description: >
+        HU-10. Crea un pedido en estado PENDIENTE a partir del carrito activo
+        y lo vacía (RN-09). Requiere que el pago esté registrado (RN-03) y
+        que el negocio esté abierto (RN-06).
+      operationId: createOrder
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Pedido creado en estado PENDIENTE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    get:
+      tags: [Pedidos]
+      summary: Ver historial de pedidos del usuario
+      description: HU-13. Retorna todos los pedidos del usuario con fecha, estado y monto.
+      operationId: listOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Historial de pedidos paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /orders/{orderId}:
+    get:
+      tags: [Pedidos]
+      summary: Ver detalle y estado de un pedido
+      description: HU-11. Retorna el estado actual y el detalle completo de un pedido del usuario.
+      operationId: getOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Detalle del pedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /orders/{orderId}/cancel:
+    patch:
+      tags: [Pedidos]
+      summary: Cancelar pedido
+      description: >
+        HU-12. Cancela el pedido del usuario. Solo es posible si el pedido
+        está en estado PENDIENTE (RN-04).
+      operationId: cancelOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Pedido cancelado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ─────────────────────────────────────────
+  # PAGOS
+  # ─────────────────────────────────────────
+
+  /orders/{orderId}/payment:
+    post:
+      tags: [Pagos]
+      summary: Registrar pago manual externo
+      description: >
+        HU-14. El cliente ingresa el ID de transacción externa y el monto del
+        comprobante de pago. El pago queda en estado PENDIENTE_VERIFICACION
+        asociado al pedido para que el administrador lo valide.
+      operationId: registerPayment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPaymentRequest'
+      responses:
+        '201':
+          description: Pago registrado en estado PENDIENTE_VERIFICACION
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ─────────────────────────────────────────
+  # NOTIFICACIONES
+  # ─────────────────────────────────────────
+
+  /notifications:
+    get:
+      tags: [Notificaciones]
+      summary: Listar notificaciones del usuario
+      description: >
+        HU-19, HU-20. Retorna las notificaciones in-app del usuario autenticado
+        (ej. pedido aceptado, domicilio en camino).
+      operationId: listNotifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de notificaciones del usuario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/{notificationId}/read:
+    patch:
+      tags: [Notificaciones]
+      summary: Marcar notificación como leída
+      description: Actualiza el campo `leida` de una notificación del usuario autenticado.
+      operationId: markNotificationRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Notificación marcada como leída
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────
+  # CALIFICACIONES
+  # ─────────────────────────────────────────
+
+  /orders/{orderId}/rating:
+    post:
+      tags: [Calificaciones]
+      summary: Calificar el servicio post-entrega
+      description: >
+        HU-21. El cliente deja una puntuación de 1 a 5 asociada al pedido.
+        Solo es posible cuando el pedido está en estado ENTREGADO y no se ha
+        calificado previamente (RN-07).
+      operationId: rateOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingRequest'
+      responses:
+        '201':
+          description: Calificación registrada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ─────────────────────────────────────────
+  # ADMIN - PRODUCTOS
+  # ─────────────────────────────────────────
+
+  /admin/products:
+    post:
+      tags: [Admin - Productos]
+      summary: Crear producto
+      description: HU-05. El administrador registra un nuevo producto en el catálogo.
+      operationId: adminCreateProduct
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '201':
+          description: Producto creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/products/{productId}:
+    put:
+      tags: [Admin - Productos]
+      summary: Editar producto
+      description: HU-05. El administrador actualiza todos los datos de un producto existente.
+      operationId: adminUpdateProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '200':
+          description: Producto actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/products/{productId}/availability:
+    patch:
+      tags: [Admin - Productos]
+      summary: Cambiar disponibilidad del producto
+      description: >
+        HU-06. El administrador marca un producto como disponible o no disponible.
+        Un producto no disponible no puede ser agregado al carrito (RN-02).
+      operationId: adminUpdateProductAvailability
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductAvailabilityRequest'
+      responses:
+        '200':
+          description: Disponibilidad del producto actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────
+  # ADMIN - PEDIDOS
+  # ─────────────────────────────────────────
+
+  /admin/orders:
+    get:
+      tags: [Admin - Pedidos]
+      summary: Listar todos los pedidos
+      description: HU-15. El administrador consulta todos los pedidos, con filtro opcional por estado.
+      operationId: adminListOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtrar pedidos por estado
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Lista de pedidos paginada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/orders/{orderId}/status:
+    patch:
+      tags: [Admin - Pedidos]
+      summary: Actualizar estado de un pedido
+      description: >
+        HU-15, HU-16. El administrador transiciona el estado de un pedido.
+        Transiciones válidas:
+        PENDIENTE → ACEPTADO,
+        PENDIENTE → CANCELADO,
+        ACEPTADO → EN_CAMINO,
+        ACEPTADO → CANCELADO,
+        EN_CAMINO → ENTREGADO.
+        Solo el administrador puede cambiar estos estados (RN-05).
+      operationId: adminUpdateOrderStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusUpdateRequest'
+      responses:
+        '200':
+          description: Estado del pedido actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ─────────────────────────────────────────
+  # ADMIN - PAGOS
+  # ─────────────────────────────────────────
+
+  /admin/payments/{paymentId}/status:
+    patch:
+      tags: [Admin - Pagos]
+      summary: Aprobar o rechazar pago manual
+      description: >
+        A-04. El administrador aprueba o rechaza el comprobante de pago enviado
+        por el cliente. Solo puede transicionar desde PENDIENTE_VERIFICACION
+        a APROBADO o RECHAZADO (RN-10).
+      operationId: adminUpdatePaymentStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentStatusUpdateRequest'
+      responses:
+        '200':
+          description: Estado del pago actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ─────────────────────────────────────────
+  # ADMIN - CONFIGURACIÓN
+  # ─────────────────────────────────────────
+
+  /admin/business-config:
+    get:
+      tags: [Admin - Configuración]
+      summary: Obtener configuración del negocio
+      description: HU-17. Retorna el horario de apertura/cierre y el estado del cierre manual.
+      operationId: adminGetBusinessConfig
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Configuración actual del negocio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [Admin - Configuración]
+      summary: Actualizar configuración del negocio
+      description: >
+        HU-17, HU-18. Actualiza el horario de apertura/cierre y el cierre
+        manual. Con cerradoManual = true el negocio no acepta pedidos
+        independientemente del horario (RN-06).
+      operationId: adminUpdateBusinessConfig
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessConfigRequest'
+      responses:
+        '200':
+          description: Configuración actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+# ─────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      description: ID del pedido
+      schema:
+        type: integer
+        format: int64
+
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      description: ID del producto
+      schema:
+        type: integer
+        format: int64
+
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      description: ID del ítem del carrito
+      schema:
+        type: integer
+        format: int64
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Número de página (base 0)
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Cantidad de elementos por página
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Solicitud inválida (campos faltantes o con formato incorrecto)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Token ausente o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: El usuario autenticado no tiene permisos para esta acción
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: El recurso solicitado no existe
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflicto con el estado actual del recurso (ej. correo duplicado)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: La solicitud es válida pero viola una regla de negocio
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    # ── Auth ──────────────────────────────
+
+    RegisterRequest:
+      type: object
+      required:
+        - nombre
+        - telefono
+        - correo
+        - password
+        - direccion
+      properties:
+        nombre:
+          type: string
+          example: "Juan Pérez"
+        telefono:
+          type: string
+          example: "3001234567"
+        correo:
+          type: string
+          format: email
+          example: "juan@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "contraseña123"
+        direccion:
+          type: string
+          example: "Calle 10 # 20-30"
+
+    LoginRequest:
+      type: object
+      required:
+        - correo
+        - password
+      properties:
+        correo:
+          type: string
+          format: email
+          example: "juan@example.com"
+        password:
+          type: string
+          format: password
+          example: "contraseña123"
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        usuario:
+          $ref: '#/components/schemas/UserProfile'
+
+    # ── Usuarios ──────────────────────────
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nombre:
+          type: string
+          example: "Juan Pérez"
+        telefono:
+          type: string
+          example: "3001234567"
+        correo:
+          type: string
+          format: email
+          example: "juan@example.com"
+        direccion:
+          type: string
+          example: "Calle 10 # 20-30"
+        metodoPagoPreferido:
+          $ref: '#/components/schemas/MetodoPago'
+        rol:
+          $ref: '#/components/schemas/UserRole'
+
+    PaymentMethodRequest:
+      type: object
+      required:
+        - metodoPagoPreferido
+      properties:
+        metodoPagoPreferido:
+          $ref: '#/components/schemas/MetodoPago'
+
+    MetodoPago:
+      type: string
+      enum:
+        - EFECTIVO
+        - TRANSFERENCIA
+      example: "TRANSFERENCIA"
+
+    UserRole:
+      type: string
+      enum:
+        - CLIENTE
+        - ADMIN
+
+    # ── Catálogo ──────────────────────────
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nombre:
+          type: string
+          example: "Elotes"
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        nombre:
+          type: string
+          example: "Elote con queso"
+        descripcion:
+          type: string
+          example: "Elote asado con queso y mayonesa"
+        precio:
+          type: number
+          example: 8500
+        imagenUrl:
+          type: string
+          example: "https://example.com/images/elote.jpg"
+        disponible:
+          type: boolean
+          example: true
+        categoria:
+          $ref: '#/components/schemas/Category'
+
+    ProductRequest:
+      type: object
+      required:
+        - nombre
+        - precio
+        - disponible
+        - categoriaId
+      properties:
+        nombre:
+          type: string
+          example: "Elote con queso"
+        descripcion:
+          type: string
+          example: "Elote asado con queso y mayonesa"
+        precio:
+          type: number
+          minimum: 0
+          example: 8500
+        imagenUrl:
+          type: string
+          example: "https://example.com/images/elote.jpg"
+        disponible:
+          type: boolean
+          example: true
+        categoriaId:
+          type: integer
+          format: int64
+          example: 1
+
+    ProductAvailabilityRequest:
+      type: object
+      required:
+        - disponible
+      properties:
+        disponible:
+          type: boolean
+          example: false
+
+    # ── Carrito ───────────────────────────
+
+    Cart:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 5
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        tarifaEnvio:
+          type: number
+          example: 3000
+        total:
+          type: number
+          example: 20000
+        ultimaActualizacion:
+          type: string
+          format: date-time
+
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 12
+        producto:
+          $ref: '#/components/schemas/Product'
+        cantidad:
+          type: integer
+          minimum: 1
+          example: 2
+        precioUnitario:
+          type: number
+          example: 8500
+        subtotal:
+          type: number
+          example: 17000
+
+    AddCartItemRequest:
+      type: object
+      required:
+        - productoId
+        - cantidad
+      properties:
+        productoId:
+          type: integer
+          format: int64
+          example: 10
+        cantidad:
+          type: integer
+          minimum: 1
+          example: 2
+
+    UpdateCartItemRequest:
+      type: object
+      required:
+        - cantidad
+      properties:
+        cantidad:
+          type: integer
+          minimum: 1
+          example: 3
+
+    # ── Pedidos ───────────────────────────
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 42
+        estado:
+          $ref: '#/components/schemas/OrderStatus'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        pago:
+          $ref: '#/components/schemas/Payment'
+        tarifaEnvio:
+          type: number
+          example: 3000
+        total:
+          type: number
+          example: 20000
+        fechaCreacion:
+          type: string
+          format: date-time
+        calificacion:
+          $ref: '#/components/schemas/Rating'
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 7
+        producto:
+          $ref: '#/components/schemas/Product'
+        cantidad:
+          type: integer
+          example: 2
+        precioUnitario:
+          type: number
+          example: 8500
+        subtotal:
+          type: number
+          example: 17000
+
+    OrderStatus:
+      type: string
+      enum:
+        - PENDIENTE
+        - ACEPTADO
+        - EN_CAMINO
+        - ENTREGADO
+        - CANCELADO
+      example: "PENDIENTE"
+
+    OrderPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        totalElements:
+          type: integer
+          example: 15
+        totalPages:
+          type: integer
+          example: 1
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+
+    OrderStatusUpdateRequest:
+      type: object
+      required:
+        - estado
+      properties:
+        estado:
+          $ref: '#/components/schemas/OrderStatus'
+
+    # ── Pagos ─────────────────────────────
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 3
+        idTransaccionExterna:
+          type: string
+          example: "TXN-20240101-ABC123"
+        monto:
+          type: number
+          example: 20000
+        estado:
+          $ref: '#/components/schemas/PaymentStatus'
+        fecha:
+          type: string
+          format: date-time
+
+    PaymentStatus:
+      type: string
+      enum:
+        - PENDIENTE_VERIFICACION
+        - APROBADO
+        - RECHAZADO
+      example: "PENDIENTE_VERIFICACION"
+
+    RegisterPaymentRequest:
+      type: object
+      required:
+        - idTransaccionExterna
+        - monto
+      properties:
+        idTransaccionExterna:
+          type: string
+          example: "TXN-20240101-ABC123"
+        monto:
+          type: number
+          minimum: 0
+          example: 20000
+
+    PaymentStatusUpdateRequest:
+      type: object
+      required:
+        - estado
+      properties:
+        estado:
+          type: string
+          enum:
+            - APROBADO
+            - RECHAZADO
+          example: "APROBADO"
+
+    # ── Notificaciones ────────────────────
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 9
+        mensaje:
+          type: string
+          example: "Tu pedido #42 ha sido aceptado y está en preparación."
+        leida:
+          type: boolean
+          example: false
+        fecha:
+          type: string
+          format: date-time
+
+    # ── Calificaciones ────────────────────
+
+    Rating:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        puntuacion:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        fecha:
+          type: string
+          format: date-time
+
+    RatingRequest:
+      type: object
+      required:
+        - puntuacion
+      properties:
+        puntuacion:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+
+    # ── Configuración del negocio ─────────
+
+    BusinessConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        horarioApertura:
+          type: string
+          description: Hora de apertura en formato HH:mm:ss
+          example: "08:00:00"
+        horarioCierre:
+          type: string
+          description: Hora de cierre en formato HH:mm:ss
+          example: "20:00:00"
+        cerradoManual:
+          type: boolean
+          description: Si es true el negocio no acepta pedidos independientemente del horario
+          example: false
+
+    BusinessConfigRequest:
+      type: object
+      required:
+        - horarioApertura
+        - horarioCierre
+        - cerradoManual
+      properties:
+        horarioApertura:
+          type: string
+          description: Hora de apertura en formato HH:mm:ss
+          example: "08:00:00"
+        horarioCierre:
+          type: string
+          description: Hora de cierre en formato HH:mm:ss
+          example: "20:00:00"
+        cerradoManual:
+          type: boolean
+          example: false
+
+    BusinessStatus:
+      type: object
+      properties:
+        abierto:
+          type: boolean
+          example: true
+
+    # ── Error ─────────────────────────────
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 422
+        error:
+          type: string
+          example: "Unprocessable Entity"
+        message:
+          type: string
+          example: "El pedido no puede cancelarse porque ya fue aceptado."
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+          example: "/api/v1/orders/42/cancel"

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MrElote – Admin</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<nav></nav>
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-item active" onclick="showSection('orders')">📦 Pedidos</div>
+    <div class="sidebar-item" onclick="showSection('products')">🌽 Productos</div>
+    <div class="sidebar-item" onclick="showSection('categories')">🏷 Categorías</div>
+    <div class="sidebar-item" onclick="showSection('config')">⚙ Configuración</div>
+  </aside>
+
+  <!-- Content -->
+  <div class="admin-content">
+
+    <!-- Pedidos -->
+    <div id="section-orders" class="admin-section active">
+      <div class="section-header">
+        <h2 class="page-title" style="margin:0">Pedidos</h2>
+        <select class="form-control" style="width:auto" id="order-filter" onchange="loadAdminOrders()">
+          <option value="">Todos</option>
+          <option value="PENDIENTE">PENDIENTE</option>
+          <option value="ACEPTADO">ACEPTADO</option>
+          <option value="EN_CAMINO">EN_CAMINO</option>
+          <option value="ENTREGADO">ENTREGADO</option>
+          <option value="CANCELADO">CANCELADO</option>
+        </select>
+      </div>
+      <div id="admin-orders"></div>
+    </div>
+
+    <!-- Productos -->
+    <div id="section-products" class="admin-section">
+      <div class="section-header">
+        <h2 class="page-title" style="margin:0">Productos</h2>
+        <button class="btn btn-primary" onclick="openProductModal()">+ Nuevo Producto</button>
+      </div>
+      <div id="admin-products"></div>
+    </div>
+
+    <!-- Categorías -->
+    <div id="section-categories" class="admin-section">
+      <div class="section-header">
+        <h2 class="page-title" style="margin:0">Categorías</h2>
+        <button class="btn btn-primary" onclick="openCategoryModal()">+ Nueva Categoría</button>
+      </div>
+      <div id="admin-categories"></div>
+    </div>
+
+    <!-- Configuración -->
+    <div id="section-config" class="admin-section">
+      <h2 class="page-title">Configuración del Negocio</h2>
+      <div class="card" style="max-width:480px">
+        <div id="config-alert"></div>
+        <form onsubmit="saveConfig(event)">
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Hora apertura</label>
+              <input class="form-control" type="time" id="cfg-apertura" required>
+            </div>
+            <div class="form-group">
+              <label>Hora cierre</label>
+              <input class="form-control" type="time" id="cfg-cierre" required>
+            </div>
+          </div>
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:0.75rem">
+            <input type="checkbox" id="cfg-cerrado" style="width:18px;height:18px;cursor:pointer">
+            <label for="cfg-cerrado" style="cursor:pointer;margin:0">Cerrar negocio manualmente</label>
+          </div>
+          <button class="btn btn-primary" type="submit">Guardar Configuración</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal Categoría -->
+<div class="modal-overlay" id="cat-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="cat-modal-title">Categoría</span>
+      <button class="modal-close" onclick="closeCatModal()">×</button>
+    </div>
+    <div id="cat-modal-alert"></div>
+    <div class="form-group">
+      <label>Nombre</label>
+      <input class="form-control" id="cat-nombre" placeholder="Ej: Elotes">
+    </div>
+    <input type="hidden" id="cat-id">
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCatModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Producto -->
+<div class="modal-overlay" id="prod-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="prod-modal-title">Producto</span>
+      <button class="modal-close" onclick="closeProdModal()">×</button>
+    </div>
+    <div id="prod-modal-alert"></div>
+    <input type="hidden" id="prod-id">
+    <div class="form-group"><label>Nombre</label><input class="form-control" id="prod-nombre"></div>
+    <div class="form-group"><label>Descripción</label><input class="form-control" id="prod-descripcion"></div>
+    <div class="grid-2">
+      <div class="form-group"><label>Precio</label><input class="form-control" type="number" id="prod-precio" min="0" step="100"></div>
+      <div class="form-group">
+        <label>Categoría</label>
+        <select class="form-control" id="prod-categoria"></select>
+      </div>
+    </div>
+    <div class="form-group"><label>URL de imagen</label><input class="form-control" id="prod-imagen" placeholder="https://..."></div>
+    <div class="form-group" style="flex-direction:row;align-items:center;gap:0.75rem">
+      <input type="checkbox" id="prod-disponible" style="width:18px;height:18px;cursor:pointer" checked>
+      <label for="prod-disponible" style="cursor:pointer;margin:0">Disponible</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeProdModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Estado Pedido -->
+<div class="modal-overlay" id="status-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="status-modal-title">Actualizar estado</span>
+      <button class="modal-close" onclick="closeStatusModal()">×</button>
+    </div>
+    <input type="hidden" id="status-order-id">
+    <div class="form-group">
+      <label>Nuevo estado</label>
+      <select class="form-control" id="status-select"></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeStatusModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="updateOrderStatus()">Actualizar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="js/api.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

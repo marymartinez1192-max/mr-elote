@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MrElote – Iniciar Sesión</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-box">
+    <div class="auth-logo">🌽 MrElote</div>
+    <div class="auth-sub">El mejor sabor a domicilio</div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchTab('login')">Iniciar Sesión</div>
+      <div class="auth-tab" onclick="switchTab('register')">Registrarse</div>
+    </div>
+
+    <!-- Login -->
+    <form id="form-login" onsubmit="doLogin(event)">
+      <div id="login-error"></div>
+      <div class="form-group">
+        <label>Correo</label>
+        <input class="form-control" type="email" id="login-correo" placeholder="correo@ejemplo.com" required>
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input class="form-control" type="password" id="login-password" placeholder="••••••••" required>
+      </div>
+      <button class="btn btn-primary btn-full" type="submit" id="btn-login">Iniciar Sesión</button>
+    </form>
+
+    <!-- Register -->
+    <form id="form-register" style="display:none" onsubmit="doRegister(event)">
+      <div id="register-error"></div>
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input class="form-control" type="text" id="reg-nombre" placeholder="Juan Pérez" required>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input class="form-control" type="text" id="reg-telefono" placeholder="3001234567" required>
+        </div>
+        <div class="form-group">
+          <label>Correo</label>
+          <input class="form-control" type="email" id="reg-correo" placeholder="correo@ejemplo.com" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Dirección</label>
+        <input class="form-control" type="text" id="reg-direccion" placeholder="Calle 10 # 20-30" required>
+      </div>
+      <div class="form-group">
+        <label>Contraseña (mín. 8 caracteres)</label>
+        <input class="form-control" type="password" id="reg-password" placeholder="••••••••" minlength="8" required>
+      </div>
+      <button class="btn btn-primary btn-full" type="submit" id="btn-register">Crear Cuenta</button>
+    </form>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

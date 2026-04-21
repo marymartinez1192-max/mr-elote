@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MrElote – Catálogo</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<nav></nav>
+<div id="biz-banner"></div>
+
+<div class="container">
+  <div class="flex-row" style="margin-bottom:1.5rem;justify-content:space-between">
+    <h1 class="page-title" style="margin:0">Catálogo</h1>
+    <input class="form-control" type="search" id="search" placeholder="Buscar producto..." style="max-width:240px" oninput="filterProducts()">
+  </div>
+
+  <div class="category-filters" id="category-filters"></div>
+  <div class="products-grid" id="products-grid">
+    <div class="empty-state"><div class="icon">⏳</div>Cargando...</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="js/api.js"></script>
+<script src="js/catalog.js"></script>
+</body>
+</html>
