@@ -1,0 +1,11 @@
+.gradle
+build
+out
+.idea
+.vscode
+*.iml
+**/.DS_Store
+HELP.md
+TDD-TODOs-Resueltos.md
+MrElote.postman_collection.json
+docker-compose.yml
