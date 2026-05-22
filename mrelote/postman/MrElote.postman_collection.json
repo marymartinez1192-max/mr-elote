@@ -1,0 +1,570 @@
+{
+  "info": {
+    "name": "MrElote API",
+    "description": "Colección de endpoints del proyecto MrElote.\n\nAuth: cookies HttpOnly (`mre_access`, `mre_refresh`) que el backend setea en `Set-Cookie`. Postman Desktop las almacena automáticamente en el cookie jar y las reenvía en cada request al mismo dominio. **NO** se usa Authorization Bearer.\n\nVariables por ambiente (ver Environments): `baseUrl`, `frontendOrigin`, `adminCorreo`, `adminPassword`, `clienteCorreo`, `clientePassword`.\n\nFlujo recomendado:\n1. Selecciona environment (Local Docker / Local Cloud / Render).\n2. Login admin → cookies almacenadas.\n3. Resto de endpoints usan las cookies automáticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// OriginCheckFilter del backend rechaza POST/PUT/PATCH/DELETE sin Origin",
+          "// que matchee MRELOTE_ALLOWED_ORIGINS. Inyecta Origin = frontendOrigin si falta.",
+          "const method = pm.request.method.toUpperCase();",
+          "const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);",
+          "if (mutating) {",
+          "    const hasOrigin = pm.request.headers.has('Origin');",
+          "    const frontendOrigin = pm.environment.get('frontendOrigin');",
+          "    if (!hasOrigin && frontendOrigin) {",
+          "        pm.request.headers.add({ key: 'Origin', value: frontendOrigin });",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [],
+  "item": [
+    {
+      "name": "Autenticación",
+      "item": [
+        {
+          "name": "Registrar cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan Pérez\",\n  \"telefono\": \"3001234567\",\n  \"correo\": \"{{clienteCorreo}}\",\n  \"password\": \"{{clientePassword}}\",\n  \"direccion\": \"Calle 10 # 20-30\",\n  \"redirectTo\": \"{{frontendOrigin}}/confirm.html\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-01. Crea cuenta de cliente vía signup público de Supabase. Supabase envía email de confirmación al `correo`. Mientras no confirme, el login fallará con 400 `email_not_confirmed`.\n\nPolítica de password: mínimo 8, una mayúscula, una minúscula, un dígito, un carácter especial.\n\n`redirectTo` debe estar en la whitelist de Supabase → Authentication → URL Configuration."
+          },
+          "response": []
+        },
+        {
+          "name": "Login cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Set-Cookie mre_access', () => pm.expect(pm.response.headers.get('Set-Cookie') || '').to.include('mre_access'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"{{clienteCorreo}}\",\n  \"password\": \"{{clientePassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-02. Autentica con correo+password. Backend valida contra Supabase, recibe tokens, los pone en cookies HttpOnly `mre_access` y `mre_refresh`. El body responde con el perfil del usuario."
+          },
+          "response": []
+        },
+        {
+          "name": "Login admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Set-Cookie mre_access', () => pm.expect(pm.response.headers.get('Set-Cookie') || '').to.include('mre_access'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"{{adminCorreo}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Login del admin sembrado por `DataInitializer` (Admin API, `email_confirm: true`). NO requiere confirmación."
+          },
+          "response": []
+        },
+        {
+          "name": "Perfil (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Devuelve perfil del usuario autenticado. Requiere cookie `mre_access` válida."
+          },
+          "response": []
+        },
+        {
+          "name": "Refrescar sesión",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Intercambia `mre_refresh` por par nuevo de cookies. 401 si el refresh es inválido (limpia cookies)."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Revoca el token en Supabase (best-effort) y limpia ambas cookies vía Set-Cookie con Max-Age=0."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Catálogo (público)",
+      "item": [
+        {
+          "name": "Listar categorías",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["categories"]
+            },
+            "description": "Endpoint público."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "categoryId", "value": "1", "disabled": true },
+                { "key": "available", "value": "true", "disabled": true }
+              ]
+            },
+            "description": "HU-04. Filtros opcionales `categoryId`, `available`. Endpoint público."
+          },
+          "response": []
+        },
+        {
+          "name": "Estado del negocio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "status"]
+            },
+            "description": "RN-06. Considera horario + cierre manual. Endpoint público."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Carrito",
+      "item": [
+        {
+          "name": "Ver carrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart"]
+            },
+            "description": "HU-08. Carrito activo del usuario autenticado."
+          },
+          "response": []
+        },
+        {
+          "name": "Agregar producto al carrito",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "items"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": 1,\n  \"cantidad\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-07. Suma cantidad si ya existe. 422 si producto no disponible (RN-02)."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar cantidad",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "items", "1"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-09. Path param: productoId."
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar ítem",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "items", "1"]
+            },
+            "description": "HU-09."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pedidos",
+      "item": [
+        {
+          "name": "Confirmar pedido",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "HU-10. Crea pedido PENDIENTE desde carrito activo y lo vacía (RN-09). 422 si carrito vacío."
+          },
+          "response": []
+        },
+        {
+          "name": "Historial de pedidos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "HU-13."
+          },
+          "response": []
+        },
+        {
+          "name": "Detalle de pedido",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "1"]
+            },
+            "description": "HU-11."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancelar pedido",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/1/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "1", "cancel"]
+            },
+            "description": "HU-12. Solo si está PENDIENTE (RN-04)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Pedidos",
+      "item": [
+        {
+          "name": "Listar todos los pedidos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "orders"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "status", "value": "PENDIENTE", "disabled": true }
+              ]
+            },
+            "description": "HU-15. Filtro opcional `status`. Requiere ADMIN."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar estado",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/1/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "orders", "1", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"ACEPTADO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-15, HU-16. Transiciones válidas: PENDIENTE→ACEPTADO|CANCELADO, ACEPTADO→EN_CAMINO|CANCELADO, EN_CAMINO→ENTREGADO. Requiere ADMIN."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Configuración Negocio",
+      "item": [
+        {
+          "name": "Obtener configuración",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/business-config",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "business-config"]
+            },
+            "description": "HU-17. Requiere ADMIN."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar configuración",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/business-config",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "business-config"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"horarioApertura\": \"08:00:00\",\n  \"horarioCierre\": \"20:00:00\",\n  \"cerradoManual\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-17, HU-18. `cerradoManual=true` bloquea pedidos (RN-06). Requiere ADMIN."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Categorías",
+      "item": [
+        {
+          "name": "Crear categoría",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "categories"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Elotes\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Requiere ADMIN."
+          },
+          "response": []
+        },
+        {
+          "name": "Editar categoría",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "categories", "1"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Elotes y Esquites\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Requiere ADMIN."
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar categoría",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "categories", "1"]
+            },
+            "description": "409 si tiene productos asociados. Requiere ADMIN."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Productos",
+      "item": [
+        {
+          "name": "Crear producto",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Elote con queso\",\n  \"descripcion\": \"Elote asado con queso y mayonesa\",\n  \"precio\": 8500,\n  \"imagenUrl\": \"https://example.com/images/elote.jpg\",\n  \"disponible\": true,\n  \"categoriaId\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-05. Requiere ADMIN."
+          },
+          "response": []
+        },
+        {
+          "name": "Editar producto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products", "1"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Elote con queso y chile\",\n  \"descripcion\": \"Elote asado con queso, mayonesa y chile\",\n  \"precio\": 9500,\n  \"imagenUrl\": \"https://example.com/images/elote-chile.jpg\",\n  \"disponible\": true,\n  \"categoriaId\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-05. Requiere ADMIN."
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar disponibilidad",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/products/1/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "products", "1", "availability"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"disponible\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "HU-06. RN-02. Requiere ADMIN."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

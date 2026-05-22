@@ -1,22 +1,4 @@
 services:
-  postgres:
-    image: postgres:17-alpine
-    container_name: mrelote-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mrelote}
-      POSTGRES_USER: ${POSTGRES_USER:-mrelote}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mrelote}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mrelote} -d ${POSTGRES_DB:-mrelote}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - mrelote-net
-
   backend:
     build:
       context: ./mrelote/mrelote
@@ -24,24 +6,35 @@ services:
     image: mrelote-backend:latest
     container_name: mrelote-backend
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-mrelote}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-mrelote}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-mrelote}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      APP_JWT_SECRET: ${APP_JWT_SECRET:-bXJlbG90ZTIwMjRzZWNyZXRrZXlmb3Jqd3R0b2tlbjMyYnl0ZXMh}
-      APP_JWT_EXPIRATION: ${APP_JWT_EXPIRATION:-86400000}
-      APP_ADMIN_NOMBRE: ${APP_ADMIN_NOMBRE:-Administrador}
-      APP_ADMIN_TELEFONO: ${APP_ADMIN_TELEFONO:-0000000000}
-      APP_ADMIN_CORREO: ${APP_ADMIN_CORREO:-admin@mrelote.com}
-      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-admin1234}
-      APP_ADMIN_DIRECCION: ${APP_ADMIN_DIRECCION:-MrElote HQ}
+      # Supabase
+      MRELOTE_SUPABASE_URL: ${MRELOTE_SUPABASE_URL}
+      MRELOTE_SUPABASE_ANON_KEY: ${MRELOTE_SUPABASE_ANON_KEY}
+      MRELOTE_SUPABASE_SERVICE_ROLE_KEY: ${MRELOTE_SUPABASE_SERVICE_ROLE_KEY}
+      MRELOTE_SUPABASE_JWKS_URI: ${MRELOTE_SUPABASE_JWKS_URI}
+      MRELOTE_SUPABASE_ISSUER: ${MRELOTE_SUPABASE_ISSUER}
+      MRELOTE_SUPABASE_JWS_ALG: ${MRELOTE_SUPABASE_JWS_ALG:-ES256}
+      # Postgres on Supabase (full JDBC URL en MRELOTE_SUPABASE_DB_HOST)
+      MRELOTE_SUPABASE_DB_HOST: ${MRELOTE_SUPABASE_DB_HOST}
+      MRELOTE_SUPABASE_DB_USER: ${MRELOTE_SUPABASE_DB_USER}
+      MRELOTE_SUPABASE_DB_PASSWORD: ${MRELOTE_SUPABASE_DB_PASSWORD}
+      # Cookies
+      MRELOTE_ACCESS_COOKIE_NAME: ${MRELOTE_ACCESS_COOKIE_NAME:-mre_access}
+      MRELOTE_REFRESH_COOKIE_NAME: ${MRELOTE_REFRESH_COOKIE_NAME:-mre_refresh}
+      MRELOTE_COOKIE_DOMAIN: ${MRELOTE_COOKIE_DOMAIN:-}
+      MRELOTE_COOKIE_SECURE: ${MRELOTE_COOKIE_SECURE:-false}
+      MRELOTE_COOKIE_SAME_SITE: ${MRELOTE_COOKIE_SAME_SITE:-Strict}
+      # CORS
+      MRELOTE_ALLOWED_ORIGINS: ${MRELOTE_ALLOWED_ORIGINS:-http://localhost:8081}
+      # Admin seed
+      MRELOTE_ADMIN_NOMBRE: ${MRELOTE_ADMIN_NOMBRE:-Administrador}
+      MRELOTE_ADMIN_TELEFONO: ${MRELOTE_ADMIN_TELEFONO:-0000000000}
+      MRELOTE_ADMIN_CORREO: ${MRELOTE_ADMIN_CORREO:-admin@mrelote.com}
+      MRELOTE_ADMIN_PASSWORD: ${MRELOTE_ADMIN_PASSWORD:-Admin1234!}
+      MRELOTE_ADMIN_DIRECCION: ${MRELOTE_ADMIN_DIRECCION:-MrElote HQ}
       JAVA_OPTS: "-XX:MaxRAMPercentage=75.0"
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "${MRELOTE_BACKEND_PORT:-8080}:8080"
     networks:
       - mrelote-net
 
@@ -55,16 +48,11 @@ services:
     depends_on:
       - backend
     environment:
-      # /api/v1 is proxied by nginx to the backend service.
-      # Override only if exposing the backend on a different host/port.
-      API_BASE_URL: ${API_BASE_URL:-/api/v1}
+      API_BASE_URL: ${MRELOTE_API_BASE_URL:-/api/v1}
     ports:
-      - "${FRONTEND_PORT:-8081}:80"
+      - "${MRELOTE_FRONTEND_PORT:-8081}:80"
     networks:
       - mrelote-net
-
-volumes:
-  postgres_data:
 
 networks:
   mrelote-net:

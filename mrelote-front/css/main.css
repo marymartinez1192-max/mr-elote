@@ -234,6 +234,8 @@ tr:hover td { background: #fafafa; }
 .alert-info { background: #e8f4fd; color: #1a5276; border: 1px solid #bee5eb; }
 .alert-warning { background: #fef9e7; color: #7d6608; border: 1px solid #ffeaa7; }
 
+.form-hint { display: block; margin-top: 0.35rem; font-size: 0.78rem; color: var(--text-light); line-height: 1.35; }
+
 #toast {
   position: fixed;
   bottom: 1.5rem;

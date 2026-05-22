@@ -1,6 +1,9 @@
-if (Auth.isLoggedIn()) {
-  window.location.href = Auth.isAdmin() ? 'admin.html' : 'catalog.html';
-}
+(async () => {
+  const user = await Auth.bootstrap();
+  if (user) {
+    window.location.href = user.rol === 'ADMIN' ? 'admin.html' : 'catalog.html';
+  }
+})();
 
 function switchTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t, i) => {
@@ -19,12 +22,12 @@ async function doLogin(e) {
   btn.textContent = 'Ingresando...';
 
   try {
-    const data = await API.login({
+    const usuario = await API.login({
       correo:   document.getElementById('login-correo').value,
       password: document.getElementById('login-password').value,
     });
-    Auth.setSession(data.token, data.usuario);
-    window.location.href = data.usuario.rol === 'ADMIN' ? 'admin.html' : 'catalog.html';
+    Auth.setUser(usuario);
+    window.location.href = usuario.rol === 'ADMIN' ? 'admin.html' : 'catalog.html';
   } catch (err) {
     errEl.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
     btn.disabled = false;
@@ -32,11 +35,21 @@ async function doLogin(e) {
   }
 }
 
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const PASSWORD_HINT  = 'La contraseña debe incluir mínimo 8 caracteres, una mayúscula, una minúscula, un dígito y un carácter especial.';
+
 async function doRegister(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-register');
   const errEl = document.getElementById('register-error');
   errEl.innerHTML = '';
+
+  const password = document.getElementById('reg-password').value;
+  if (!PASSWORD_REGEX.test(password)) {
+    errEl.innerHTML = `<div class="alert alert-danger">${PASSWORD_HINT}</div>`;
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'Creando cuenta...';
 
@@ -46,10 +59,14 @@ async function doRegister(e) {
       telefono:  document.getElementById('reg-telefono').value,
       correo:    document.getElementById('reg-correo').value,
       direccion: document.getElementById('reg-direccion').value,
-      password:  document.getElementById('reg-password').value,
+      password,
+      redirectTo: `${window.location.origin}/confirm.html`,
     });
-    errEl.innerHTML = `<div class="alert alert-success">¡Cuenta creada! Ahora inicia sesión.</div>`;
-    setTimeout(() => switchTab('login'), 1500);
+    document.getElementById('form-register').reset();
+    errEl.innerHTML = `<div class="alert alert-success">
+      Cuenta creada. Te enviamos un correo de confirmación —
+      haz click en el link para activarla. Luego podrás iniciar sesión.
+    </div>`;
   } catch (err) {
     errEl.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
   } finally {

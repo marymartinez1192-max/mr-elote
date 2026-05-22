@@ -1,31 +1,60 @@
-const BASE_URL = 'http://localhost:8080/api/v1';
+const BASE_URL = '/api/v1';
 
-// ── Auth state ────────────────────────────────────────────────
+// ── Auth state (perfil en sessionStorage; tokens en cookies HttpOnly) ──
 const Auth = {
-  getToken: () => localStorage.getItem('token'),
-  getUser:  () => JSON.parse(localStorage.getItem('user') || 'null'),
-  setSession(token, user) {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+  getUser:  () => JSON.parse(sessionStorage.getItem('user') || 'null'),
+  setUser(user) {
+    if (user) sessionStorage.setItem('user', JSON.stringify(user));
+    else      sessionStorage.removeItem('user');
   },
-  clear() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  async clear() {
+    try { await fetch(`${BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' }); } catch (_) {}
+    sessionStorage.removeItem('user');
   },
-  isLoggedIn: () => !!localStorage.getItem('token'),
-  isAdmin:    () => JSON.parse(localStorage.getItem('user') || 'null')?.rol === 'ADMIN',
+  isLoggedIn: () => !!sessionStorage.getItem('user'),
+  isAdmin:    () => JSON.parse(sessionStorage.getItem('user') || 'null')?.rol === 'ADMIN',
+  async bootstrap() {
+    if (this.isLoggedIn()) return this.getUser();
+    let res = await rawRequest('GET', '/auth/me', null);
+    if (res.status === 401) {
+      const refreshed = await rawRequest('POST', '/auth/refresh', null);
+      if (!refreshed.ok) return null;
+      res = await rawRequest('GET', '/auth/me', null);
+    }
+    if (!res.ok) return null;
+    const user = await res.json().catch(() => null);
+    if (user) this.setUser(user);
+    return user;
+  },
 };
 
-// ── Base request ──────────────────────────────────────────────
+// ── Base request con refresh automático ───────────────────────
+let refreshing = null;
+
+async function rawRequest(method, path, body) {
+  const headers = body !== null && body !== undefined ? { 'Content-Type': 'application/json' } : {};
+  const options = { method, headers, credentials: 'include' };
+  if (body !== null && body !== undefined) options.body = JSON.stringify(body);
+  return fetch(`${BASE_URL}${path}`, options);
+}
+
 async function request(method, path, body = null) {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = Auth.getToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  let res = await rawRequest(method, path, body);
 
-  const options = { method, headers };
-  if (body !== null) options.body = JSON.stringify(body);
-
-  const res = await fetch(`${BASE_URL}${path}`, options);
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    if (!refreshing) {
+      refreshing = fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'include' })
+        .finally(() => { refreshing = null; });
+    }
+    const refreshRes = await refreshing;
+    if (refreshRes && refreshRes.ok) {
+      res = await rawRequest(method, path, body);
+    } else {
+      sessionStorage.removeItem('user');
+      window.location.href = 'index.html';
+      throw { status: 401, message: 'Sesión expirada' };
+    }
+  }
 
   if (res.status === 204) return null;
   const data = await res.json().catch(() => ({}));
@@ -38,6 +67,8 @@ const API = {
   // Auth
   register: d => request('POST', '/auth/register', d),
   login:    d => request('POST', '/auth/login', d),
+  logout:   () => request('POST', '/auth/logout'),
+  me:       () => request('GET',  '/auth/me'),
 
   // Catálogo (público)
   getCategories:    () => request('GET', '/categories'),
@@ -142,8 +173,8 @@ async function updateCartBadge() {
   } catch (_) {}
 }
 
-function logout() {
-  Auth.clear();
+async function logout() {
+  await Auth.clear();
   window.location.href = 'index.html';
 }
 

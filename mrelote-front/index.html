@@ -53,8 +53,13 @@
         <input class="form-control" type="text" id="reg-direccion" placeholder="Calle 10 # 20-30" required>
       </div>
       <div class="form-group">
-        <label>Contraseña (mín. 8 caracteres)</label>
-        <input class="form-control" type="password" id="reg-password" placeholder="••••••••" minlength="8" required>
+        <label>Contraseña</label>
+        <input class="form-control" type="password" id="reg-password" placeholder="••••••••"
+               minlength="8"
+               pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$"
+               title="Mínimo 8 caracteres, una mayúscula, una minúscula, un dígito y un carácter especial"
+               required>
+        <small class="form-hint">Mínimo 8 caracteres, una mayúscula, una minúscula, un dígito y un carácter especial.</small>
       </div>
       <button class="btn btn-primary btn-full" type="submit" id="btn-register">Crear Cuenta</button>
     </form>

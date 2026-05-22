@@ -1,7 +1,9 @@
 package com.grupocinco.mrelote.exception;
 
+import com.grupocinco.mrelote.auth.supabase.SupabaseAuthException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -57,5 +59,18 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     public ApiError handleReglaDeNegocio(ReglaDeNegocioException ex, HttpServletRequest request) {
         return new ApiError(422, "Unprocessable Entity", ex.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(SupabaseAuthException.class)
+    public ResponseEntity<ApiError> handleSupabaseAuth(SupabaseAuthException ex, HttpServletRequest request) {
+        HttpStatus status = ex.getStatus() >= 500 || ex.getStatus() == 0
+                ? HttpStatus.BAD_GATEWAY
+                : HttpStatus.valueOf(ex.getStatus());
+        return ResponseEntity.status(status).body(new ApiError(
+                status.value(),
+                status.getReasonPhrase(),
+                "Error en el proveedor de autenticación",
+                request.getRequestURI()
+        ));
     }
 }
