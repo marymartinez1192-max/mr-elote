@@ -1,5 +1,6 @@
 package com.grupocinco.mrelote.domain.pedido;
 
+import com.grupocinco.mrelote.config.ZonaNegocio;
 import com.grupocinco.mrelote.domain.usuario.Usuario;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -40,5 +41,5 @@ public class Pedido {
     private BigDecimal total;
 
     @Column(nullable = false)
-    private LocalDateTime fechaCreacion = LocalDateTime.now();
+    private LocalDateTime fechaCreacion = ZonaNegocio.ahora();
 }

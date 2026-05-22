@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.grupocinco.mrelote.MreloteApplicationTests" tests="1" skipped="1" failures="0" errors="0" timestamp="2026-05-22T00:08:36.087Z" hostname="FERHO-PC" time="0.0">
-  <properties/>
-  <testcase name="contextLoads()" classname="com.grupocinco.mrelote.MreloteApplicationTests" time="0.0">
-    <skipped/>
-  </testcase>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

@@ -2,6 +2,7 @@ package com.grupocinco.mrelote.admin;
 
 import com.grupocinco.mrelote.admin.dto.ConfigNegocioRequest;
 import com.grupocinco.mrelote.admin.dto.ConfigNegocioResponse;
+import com.grupocinco.mrelote.config.ZonaNegocio;
 import com.grupocinco.mrelote.domain.negocio.ConfigNegocio;
 import com.grupocinco.mrelote.domain.negocio.ConfigNegocioRepository;
 import com.grupocinco.mrelote.exception.ReglaDeNegocioException;
@@ -33,7 +34,7 @@ public class NegocioService {
         if (config.isCerradoManual()) {
             return false;
         }
-        LocalTime ahora = LocalTime.now();
+        LocalTime ahora = ZonaNegocio.horaActual();
         return !ahora.isBefore(config.getHorarioApertura()) && !ahora.isAfter(config.getHorarioCierre());
     }
 

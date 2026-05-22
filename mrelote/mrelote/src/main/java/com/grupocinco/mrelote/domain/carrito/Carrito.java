@@ -1,5 +1,6 @@
 package com.grupocinco.mrelote.domain.carrito;
 
+import com.grupocinco.mrelote.config.ZonaNegocio;
 import com.grupocinco.mrelote.domain.usuario.Usuario;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -29,8 +30,8 @@ public class Carrito {
     private List<ItemCarrito> items = new ArrayList<>();
 
     @Column(nullable = false)
-    private LocalDateTime fechaCreacion = LocalDateTime.now();
+    private LocalDateTime fechaCreacion = ZonaNegocio.ahora();
 
     @Column(nullable = false)
-    private LocalDateTime ultimaActualizacion = LocalDateTime.now();
+    private LocalDateTime ultimaActualizacion = ZonaNegocio.ahora();
 }

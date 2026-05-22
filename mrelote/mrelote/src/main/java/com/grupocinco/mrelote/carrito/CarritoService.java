@@ -4,6 +4,7 @@ import com.grupocinco.mrelote.carrito.dto.ActualizarItemRequest;
 import com.grupocinco.mrelote.carrito.dto.AgregarItemRequest;
 import com.grupocinco.mrelote.carrito.dto.CarritoResponse;
 import com.grupocinco.mrelote.carrito.dto.ItemCarritoResponse;
+import com.grupocinco.mrelote.config.ZonaNegocio;
 import com.grupocinco.mrelote.domain.carrito.Carrito;
 import com.grupocinco.mrelote.domain.carrito.CarritoRepository;
 import com.grupocinco.mrelote.domain.carrito.ItemCarrito;
@@ -22,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -79,7 +79,7 @@ public class CarritoService {
             carrito.getItems().add(itemGuardado);
         }
 
-        carrito.setUltimaActualizacion(LocalDateTime.now());
+        carrito.setUltimaActualizacion(ZonaNegocio.ahora());
         return toResponse(carritoRepository.save(carrito));
     }
 
@@ -98,7 +98,7 @@ public class CarritoService {
         item.setSubtotal(item.getPrecioUnitario().multiply(BigDecimal.valueOf(request.cantidad())));
         itemCarritoRepository.save(item);
 
-        carrito.setUltimaActualizacion(LocalDateTime.now());
+        carrito.setUltimaActualizacion(ZonaNegocio.ahora());
         return toResponse(carritoRepository.save(carrito));
     }
 
@@ -113,7 +113,7 @@ public class CarritoService {
         carrito.getItems().remove(item);
         itemCarritoRepository.delete(item);
 
-        carrito.setUltimaActualizacion(LocalDateTime.now());
+        carrito.setUltimaActualizacion(ZonaNegocio.ahora());
         return toResponse(carritoRepository.save(carrito));
     }
 
